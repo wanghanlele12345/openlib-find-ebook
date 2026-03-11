@@ -17,9 +17,13 @@ Before any online action, ALWAYS scan `/Users/mac/Documents/HW/我独自阅读` 
 ### Phase 2: Online Acquisition
 If the book is not found locally:
 1.  **Search**: Use `search_books` (defaulting to EPUB).
-2.  **Resolve**: Use `resolve_download_link` on the primary mirror (`https://annas-archive.gl`).
-3.  **Categorize**: Automatically determine the book's `category` (e.g., Science, Philosophy, Fiction) and `author`.
-4.  **Download**: Use `download_book` to save it to `/Users/mac/Documents/HW/我独自阅读/{category}/{author}/`.
+2.  **LLM Verification & Selection**: 
+    - **Crucial Step**: The LLM agent MUST analyze the list of search results.
+    - **Check Criteria**: Compare author names, check file sizes (avoid scanned PDFs > 30-40MB), and verify the publication year/language.
+    - **Pick MD5**: Select the specific MD5 hash or link that best matches the user's intent.
+3.  **Resolve**: Use `resolve_download_link` on the selected MD5/link.
+4.  **Categorize**: Automatically determine the book's `category` (e.g., Science, Philosophy, Fiction) and `author`.
+5.  **Download**: Use `download_book` to save it to `/Users/mac/Documents/HW/我独自阅读/{category}/{author}/`.
 
 ### Phase 3: Automated Post-Processing
 After download, automatically trigger conversion:

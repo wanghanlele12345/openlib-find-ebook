@@ -56,67 +56,84 @@ async def convert_and_split(file_path: str):
     return "Error: Conversion failed."
 
 @mcp.tool()
-async def find_and_save_book(query: str, category: str = "其他", author: str = None, extension: str = "epub"):
+async def find_and_save_book(query: str, category: str = "其他", author: str = None, extension: str = "epub", max_size_mb: float = 30.0):
     """
-    Complete workflow: Search for a book, download it to the specified category, 
-    and convert it to Markdown.
+    Complete workflow with an integrated selection logic.
+    Searches for a book, filters for quality (size, format), and downloads/converts.
     """
-    # Redirect print to stderr for MCP safety
     def log(msg):
         print(f"[*] {msg}", file=sys.stderr)
 
-    log(f"Starting full workflow for: {query}")
+    log(f"Starting search for: {query} (Preferred Ext: {extension})")
     
     # 1. Search
     results = await scraper.search(query, file_type=extension)
     if not results:
-        return f"Error: No books found for query '{query}'"
+        return json.dumps({"status": "error", "message": f"No books found for '{query}'"}, ensure_ascii=False)
     
-    book = results[0] # Take first result
-    book_title = book['title']
-    book_author = author or book['author'] or "未知作者"
+    # 2. Heuristic Filter (Avoiding Scanned versions by size)
+    # This acts as a first pass for the LLM to verify later
+    filtered_results = []
+    for r in results:
+        # Extract size from info (e.g., '49.1MB')
+        size_match = re.search(r'(\d+\.?\d*)MB', r['info'])
+        size_mb = float(size_match.group(1)) if size_match else 0.0
+        
+        # If it's a non-fiction book and size is > 40MB, it's likely a scan
+        is_scanned = size_mb > max_size_mb and "non-fiction" in r['info'].lower()
+        r['is_likely_scan'] = is_scanned
+        r['size_mb'] = size_mb
+        filtered_results.append(r)
+
+    # In this automated tool, we'll pick the best one based on size and relevance
+    # But for full 'LLM Verification', the Agent calling this tool should look at the results.
+    # We will pick the first one that isn't a likely scan, or the smallest one if all are large.
+    best_match = None
+    for r in filtered_results:
+        if not r['is_likely_scan']:
+            best_match = r
+            break
     
-    log(f"Found book: {book_title} by {book_author}")
+    if not best_match:
+        best_match = sorted(filtered_results, key=lambda x: x['size_mb'])[0]
+        log(f"Warning: All versions exceed {max_size_mb}MB. Picking the smallest: {best_match['size_mb']}MB")
+
+    book_title = best_match['title']
+    book_author = author or best_match['author'] or "未知作者"
     
-    # 2. Get info and resolve link
-    info = await scraper.get_book_info(book['link'])
+    log(f"Selected: {book_title} by {book_author} ({best_match['size_mb']}MB)")
+    
+    # 3. Resolve
+    info = await scraper.get_book_info(best_match['link'])
     if not info or not info.get('mirrors'):
-        return f"Error: Could not find download mirrors for {book_title}"
+        return json.dumps({"status": "error", "message": f"No mirrors for {book_title}"}, ensure_ascii=False)
     
     resolved_link = None
     for mirror in info['mirrors']:
-        log(f"Attempting to resolve mirror: {mirror}")
         resolved_link = await scraper.resolve_mirror_link(mirror)
-        if resolved_link:
-            break
+        if resolved_link: break
             
     if not resolved_link:
-        return f"Error: Failed to resolve a working download link for {book_title}"
+        return json.dumps({"status": "error", "message": f"Failed to resolve download link"}, ensure_ascii=False)
     
-    # 3. Download
+    # 4. Download
     target_dir = scraper.prepare_structured_dir(DEFAULT_ROOT, category, book_author)
     filename = "".join([c for c in book_title if c.isalnum() or c in "._- "]).strip() + f".{extension}"
-    
-    log(f"Downloading to: {target_dir}")
     file_path = await scraper.download_file(resolved_link, dest_folder=target_dir, filename=filename)
     
     if not file_path:
-        return f"Error: Download failed for {book_title}"
+        return json.dumps({"status": "error", "message": "Download failed"}, ensure_ascii=False)
         
-    # 4. Convert
-    log(f"Converting {file_path} to Markdown...")
+    # 5. Convert
+    log(f"Converting to Markdown...")
     conv_result = await scraper.convert_to_markdown(file_path)
     
-    status = {
+    return json.dumps({
         "status": "success",
-        "title": book_title,
-        "author": book_author,
-        "category": category,
+        "book": best_match,
         "file_path": file_path,
         "conversion": conv_result
-    }
-    
-    return json.dumps(status, indent=2, ensure_ascii=False)
+    }, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
     # If arguments are provided, run as a CLI tool
