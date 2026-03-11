@@ -179,6 +179,7 @@ class Scraper:
     async def convert_to_markdown(self, file_path: str) -> Optional[str]:
         """
         Converts EPUB or PDF to Markdown using system scripts or libraries.
+        Includes post-processing to fix image paths.
         """
         ext = file_path.lower().split('.')[-1]
         
@@ -187,7 +188,6 @@ class Scraper:
                 workflow_path = "/Library/Services/Convert EPUB to Markdown.workflow"
                 if os.path.exists(workflow_path):
                     print(f"Calling system workflow for conversion: {workflow_path}")
-                    # Use automator command to run the Quick Action
                     cmd = f'automator -i "{file_path}" "{workflow_path}"'
                     process = await asyncio.create_subprocess_shell(
                         cmd,
@@ -196,14 +196,14 @@ class Scraper:
                     )
                     stdout, stderr = await process.communicate()
                     if process.returncode == 0:
-                        # The script creates a folder with the same name as the book
                         target_dir = file_path.rsplit('.', 1)[0]
+                        # Post-process image paths in the target directory
+                        self._fix_image_paths(target_dir)
                         return f"Success: Chapters saved in {target_dir}"
                     else:
                         print(f"Workflow error: {stderr.decode()}")
                         return None
                 else:
-                    # Fallback to pypandoc if workflow not found
                     import pypandoc
                     return pypandoc.convert_file(file_path, 'md')
             elif ext == 'pdf':
@@ -212,11 +212,36 @@ class Scraper:
                 result = mid.convert(file_path)
                 return result.text_content
             else:
-                print(f"Unsupported extension: {ext}")
                 return None
         except Exception as e:
             print(f"Conversion error: {e}")
             return None
+
+    def _fix_image_paths(self, target_dir: str):
+        """
+        Scans all Markdown files and updates image paths to point to 'html/images/'.
+        """
+        if not os.path.exists(target_dir):
+            return
+            
+        print(f"Fixing image paths in {target_dir}...")
+        for root, dirs, files in os.walk(target_dir):
+            for file in files:
+                if file.endswith(".md"):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        
+                        # Replace ../images/ or images/ with html/images/
+                        # Using regex to match various Markdown image syntax
+                        new_content = re.sub(r'!\[.*?\]\((\.\.\/|)?images\/', '![](html/images/', content)
+                        
+                        if new_content != content:
+                            with open(file_path, "w", encoding="utf-8") as f:
+                                f.write(new_content)
+                    except Exception as e:
+                        print(f"Error fixing {file}: {e}")
 
     def split_into_chapters(self, md_content: str, target_dir: str):
         """
