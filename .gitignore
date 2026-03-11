@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.epub
+*.pdf
+*.mobi
+*.azw3
+Downloads/
+*.log

@@ -28,17 +28,22 @@
     - 遵循“我独自阅读”目录结构规范。
 - **MCP 架构集成**：作为 Model Context Protocol (MCP) 服务器运行，完美适配 Gemini CLI 的工具调用机制。
 
-## 🛠️ 安装要求
+## 🛠️ 安装与配置
 
-1. **Python 环境**：Python 3.10+
-2. **系统工具**：
+为了确保 Extension 运行环境正确且独立，请按以下步骤安装：
+
+1. **克隆并准备环境**：
+   ```bash
+   cd openlib-book-finder
+   chmod +x setup.sh
+   ./setup.sh
+   ```
+   这会自动创建虚拟环境 (`venv`)、安装依赖以及 Playwright 浏览器。
+
+2. **系统依赖** (可选)：
    - `pandoc` (用于 Markdown 转换)
    - macOS 用户建议安装 `Convert EPUB to Markdown.workflow` 以获得最佳转换效果。
-3. **Playwright 浏览器**：
-   ```bash
-   pip install playwright
-   playwright install chromium
-   ```
+
 
 ## 🚀 快速开始
 

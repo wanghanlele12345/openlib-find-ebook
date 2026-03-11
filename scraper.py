@@ -1,3 +1,10 @@
+import os, sys, glob
+base_dir = os.path.dirname(os.path.abspath(__file__))
+site_packages_pattern = os.path.join(base_dir, "venv", "lib", "python*", "site-packages")
+site_packages_dirs = glob.glob(site_packages_pattern)
+if site_packages_dirs:
+    sys.path.insert(0, site_packages_dirs[0])
+
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth
 import httpx

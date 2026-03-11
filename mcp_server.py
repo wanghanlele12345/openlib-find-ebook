@@ -1,122 +1,124 @@
+import os, sys, glob
+base_dir = os.path.dirname(os.path.abspath(__file__))
+site_packages_pattern = os.path.join(base_dir, "venv", "lib", "python*", "site-packages")
+site_packages_dirs = glob.glob(site_packages_pattern)
+if site_packages_dirs:
+    sys.path.insert(0, site_packages_dirs[0])
+
 from fastmcp import FastMCP
-from playwright.async_api import async_playwright
-from playwright_stealth import stealth
 from scraper import Scraper
 import asyncio
-import os
+import json
 
-# Create an MCP server
-mcp = FastMCP("Playwright MCP", dependencies=["playwright", "playwright-stealth", "beautifulsoup4"])
-
-# Reuse existing Scraper logic
+# Initialize FastMCP
+mcp = FastMCP("Openlib Book Finder")
 scraper = Scraper()
 
-@mcp.tool()
-async def search_books(query: str, file_type: str = ""):
-    """
-    Search for books on Anna's Archive mirrors.
-    """
-    return await scraper.search(query, file_type)
+# Default path from environment or common location
+DEFAULT_ROOT = "/Users/mac/Documents/HW/我独自阅读"
 
 @mcp.tool()
-async def get_book_details(url: str):
-    """
-    Get detailed information and mirror links for a specific book.
-    """
-    return await scraper.get_book_info(url)
+async def search_books(query: str, extension: str = "epub"):
+    """Search for books on Anna's Archive. Returns a list of potential matches."""
+    results = await scraper.search(query, file_type=extension)
+    return json.dumps(results, indent=2, ensure_ascii=False)
 
 @mcp.tool()
-async def resolve_download_link(url: str):
-    """
-    Use Playwright with stealth to resolve a slow download link or mirror.
-    """
-    return await scraper.resolve_mirror_link(url)
-
-@mcp.tool()
-async def check_local_library(query: str):
-    """
-    Search for a book in the local library recursively.
-    """
-    root_dir = os.getenv("OPENLIB_BOOK_PATH", os.path.join(os.getcwd(), "Downloads"))
-    path = await scraper.check_local_book(query, root_dir)
-    if path:
-        return {"status": "found", "file_path": path}
-    else:
-        return {"status": "not_found"}
+async def resolve_download_link(md5_or_url: str):
+    """Resolves a book's MD5 or detail URL to a direct download link."""
+    url = md5_or_url
+    if not url.startswith("http"):
+        url = f"https://annas-archive.gl/md5/{md5_or_url}"
+    
+    info = await scraper.get_book_info(url)
+    if not info or not info.get('mirrors'):
+        return "No mirror links found for this book."
+    
+    # Try the first mirror
+    resolved = await scraper.resolve_mirror_link(info['mirrors'][0])
+    return json.dumps({"info": info, "resolved_link": resolved}, indent=2, ensure_ascii=False)
 
 @mcp.tool()
 async def download_book(url: str, category: str, author: str, filename: str = None):
-    """
-    Download a book from a direct or resolved URL into a structured folder.
-    CRITICAL: The 'author' parameter MUST follow the project's 'Chinese (English)' convention.
-    Example: '斯坦尼斯拉斯·迪昂 (Stanislas Dehaene)'. 
-    If you (the Agent) only have the English name, use your LLM capabilities to find the common Chinese translation.
-    Format: {OPENLIB_BOOK_PATH}/category/author/filename
-    """
-    root_dir = os.getenv("OPENLIB_BOOK_PATH", os.path.join(os.getcwd(), "Downloads"))
-    target_dir = scraper.prepare_structured_dir(root_dir, category, author)
+    """Downloads a book and saves it in a structured directory: root/category/author/filename."""
+    target_dir = scraper.prepare_structured_dir(DEFAULT_ROOT, category, author)
     file_path = await scraper.download_file(url, dest_folder=target_dir, filename=filename)
     if file_path:
-        return {"status": "success", "file_path": file_path}
-    else:
-        return {"status": "error", "message": "Download failed"}
+        return f"Success: Book downloaded to {file_path}"
+    return "Error: Download failed."
 
 @mcp.tool()
 async def convert_and_split(file_path: str):
+    """Converts a book (EPUB/PDF) to Markdown and splits it into chapters."""
+    result = await scraper.convert_to_markdown(file_path)
+    if result:
+        return result
+    return "Error: Conversion failed."
+
+@mcp.tool()
+async def find_and_save_book(query: str, category: str = "其他", author: str = None, extension: str = "epub"):
     """
-    Post-process a downloaded book: convert to markdown and split into chapters.
-    The final output folder will be renamed to follow 'Chinese (English)' convention 
-    if you provide the translated title later.
-    """
-    md_content = await scraper.convert_to_markdown(file_path)
-    if not md_content:
-        return {"status": "error", "message": "Conversion to markdown failed"}
-        
-    # Create a subfolder for chapters: {book_name}_markdown
-    base_dir = os.path.dirname(file_path)
-    book_name = os.path.basename(file_path).rsplit('.', 1)[0]
-    target_dir = os.path.join(base_dir, f"{book_name}_markdown")
+    Complete workflow: Search for a book, download it to the specified category, 
+    and convert it to Markdown.
     
-    chapter_dir = scraper.split_into_chapters(md_content, target_dir)
-    return {"status": "success", "markdown_dir": chapter_dir}
-
-@mcp.tool()
-async def navigate_to(url: str):
+    Args:
+        query: The book title or keywords to search for.
+        category: The library category (e.g., 心理学, 科学, 哲学).
+        author: Optional specific author name.
+        extension: Preferred file format (default: epub).
     """
-    Navigate to a URL using Playwright and return the page content.
-    Useful for general web browsing and debugging.
-    """
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(user_agent=scraper.headers["User-Agent"])
-        page = await context.new_page()
-        await stealth(page)
+    print(f"[*] Starting full workflow for: {query}")
+    
+    # 1. Search
+    results = await scraper.search(query, file_type=extension)
+    if not results:
+        return f"Error: No books found for query '{query}'"
+    
+    book = results[0] # Take first result
+    book_title = book['title']
+    book_author = author or book['author'] or "未知作者"
+    
+    print(f"[*] Found book: {book_title} by {book_author}")
+    
+    # 2. Get info and resolve link
+    info = await scraper.get_book_info(book['link'])
+    if not info or not info.get('mirrors'):
+        return f"Error: Could not find download mirrors for {book_title}"
+    
+    resolved_link = None
+    for mirror in info['mirrors']:
+        print(f"[*] Attempting to resolve mirror: {mirror}")
+        resolved_link = await scraper.resolve_mirror_link(mirror)
+        if resolved_link:
+            break
+            
+    if not resolved_link:
+        return f"Error: Failed to resolve a working download link for {book_title}"
+    
+    # 3. Download
+    target_dir = scraper.prepare_structured_dir(DEFAULT_ROOT, category, book_author)
+    filename = "".join([c for c in book_title if c.isalnum() or c in "._- "]).strip() + f".{extension}"
+    
+    print(f"[*] Downloading to: {target_dir}")
+    file_path = await scraper.download_file(resolved_link, dest_folder=target_dir, filename=filename)
+    
+    if not file_path:
+        return f"Error: Download failed for {book_title}"
         
-        try:
-            await page.goto(url, wait_until="networkidle", timeout=30000)
-            content = await page.content()
-            title = await page.title()
-            return {"title": title, "content": content, "url": page.url}
-        finally:
-            await browser.close()
-
-@mcp.tool()
-async def take_screenshot(url: str, filename: str = "screenshot.png"):
-    """
-    Take a screenshot of a page.
-    """
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(user_agent=scraper.headers["User-Agent"])
-        page = await context.new_page()
-        await stealth(page)
-        
-        try:
-            await page.goto(url, wait_until="networkidle", timeout=30000)
-            await page.screenshot(path=filename, full_page=True)
-            return {"status": "success", "message": f"Screenshot saved to {filename}"}
-        finally:
-            await browser.close()
+    # 4. Convert
+    print(f"[*] Converting {file_path} to Markdown...")
+    conv_result = await scraper.convert_to_markdown(file_path)
+    
+    status = {
+        "status": "success",
+        "title": book_title,
+        "author": book_author,
+        "category": category,
+        "file_path": file_path,
+        "conversion": conv_result
+    }
+    
+    return json.dumps(status, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
     mcp.run()
