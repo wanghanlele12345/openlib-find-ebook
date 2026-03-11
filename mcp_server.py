@@ -60,14 +60,12 @@ async def find_and_save_book(query: str, category: str = "其他", author: str =
     """
     Complete workflow: Search for a book, download it to the specified category, 
     and convert it to Markdown.
-    
-    Args:
-        query: The book title or keywords to search for.
-        category: The library category (e.g., 心理学, 科学, 哲学).
-        author: Optional specific author name.
-        extension: Preferred file format (default: epub).
     """
-    print(f"[*] Starting full workflow for: {query}")
+    # Redirect print to stderr for MCP safety
+    def log(msg):
+        print(f"[*] {msg}", file=sys.stderr)
+
+    log(f"Starting full workflow for: {query}")
     
     # 1. Search
     results = await scraper.search(query, file_type=extension)
@@ -78,7 +76,7 @@ async def find_and_save_book(query: str, category: str = "其他", author: str =
     book_title = book['title']
     book_author = author or book['author'] or "未知作者"
     
-    print(f"[*] Found book: {book_title} by {book_author}")
+    log(f"Found book: {book_title} by {book_author}")
     
     # 2. Get info and resolve link
     info = await scraper.get_book_info(book['link'])
@@ -87,7 +85,7 @@ async def find_and_save_book(query: str, category: str = "其他", author: str =
     
     resolved_link = None
     for mirror in info['mirrors']:
-        print(f"[*] Attempting to resolve mirror: {mirror}")
+        log(f"Attempting to resolve mirror: {mirror}")
         resolved_link = await scraper.resolve_mirror_link(mirror)
         if resolved_link:
             break
@@ -99,14 +97,14 @@ async def find_and_save_book(query: str, category: str = "其他", author: str =
     target_dir = scraper.prepare_structured_dir(DEFAULT_ROOT, category, book_author)
     filename = "".join([c for c in book_title if c.isalnum() or c in "._- "]).strip() + f".{extension}"
     
-    print(f"[*] Downloading to: {target_dir}")
+    log(f"Downloading to: {target_dir}")
     file_path = await scraper.download_file(resolved_link, dest_folder=target_dir, filename=filename)
     
     if not file_path:
         return f"Error: Download failed for {book_title}"
         
     # 4. Convert
-    print(f"[*] Converting {file_path} to Markdown...")
+    log(f"Converting {file_path} to Markdown...")
     conv_result = await scraper.convert_to_markdown(file_path)
     
     status = {
@@ -121,4 +119,16 @@ async def find_and_save_book(query: str, category: str = "其他", author: str =
     return json.dumps(status, indent=2, ensure_ascii=False)
 
 if __name__ == "__main__":
-    mcp.run()
+    # If arguments are provided, run as a CLI tool
+    if len(sys.argv) > 1 and sys.argv[1] != "run":
+        async def main():
+            query = sys.argv[1]
+            cat = sys.argv[2] if len(sys.argv) > 2 else "哲学"
+            result = await find_and_save_book(query, category=cat)
+            print(result)
+        asyncio.run(main())
+    else:
+        # Run as MCP server, suppressing the banner on stdout
+        import logging
+        logging.getLogger("fastmcp").setLevel(logging.ERROR)
+        mcp.run()

@@ -127,47 +127,10 @@ class Scraper:
 
     def prepare_structured_dir(self, root_dir: str, category: str, author: str) -> str:
         """
-        Creates and returns the path: root_dir/category/author
-        Prefers existing directories with similar names (e.g., Science -> 科学).
-        Author name should ideally be in 'Chinese (English)' format.
+        Simply creates and returns the path: root_dir/category/author.
+        All logic for choosing the correct category and author names (translations, 
+        matching existing folders) is handled by the LLM agent before calling this tool.
         """
-        # Mapping for common categories to existing Chinese folders
-        category_map = {
-            "science": "科学",
-            "philosophy": "哲学",
-            "history": "历史",
-            "fiction": "小说",
-            "biography": "传记",
-            "psychology": "心理学",
-            "religion": "宗教",
-            "buddhism": "佛学",
-            "success": "成功学",
-            "literature": "文学",
-            "drama": "戏剧",
-            "economics": "经济学"
-        }
-        
-        # 1. Normalize input category
-        cat_lower = category.lower().strip()
-        target_cat = category_map.get(cat_lower, category)
-        
-        # 2. Check if a similar directory already exists in root_dir
-        if os.path.exists(root_dir):
-            existing_dirs = [d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d))]
-            
-            # Try to find an exact or semantic match in existing dirs
-            match_found = False
-            for ed in existing_dirs:
-                if ed == target_cat or ed.lower() == cat_lower:
-                    target_cat = ed
-                    match_found = True
-                    break
-            
-            # 3. Fallback to '其他' if no match and it's not a known category
-            if not match_found and cat_lower not in category_map.values():
-                if target_cat not in existing_dirs:
-                    target_cat = "其他"
-
         # Clean names for folder safety but preserve Chinese and common punctuation
         def clean_path_name(name: str) -> str:
             # Allow: Chinese, Alphanumeric, Space, (), ., -, ·
@@ -175,10 +138,10 @@ class Scraper:
             cleaned = re.sub(r'[\\/:*?"<>|]', '_', name)
             return cleaned.strip()
 
-        target_cat = clean_path_name(target_cat) or "其他"
-        author = clean_path_name(author) or "未知作者"
+        target_cat = clean_path_name(category) or "其他"
+        author_dir = clean_path_name(author) or "未知作者"
         
-        target_path = os.path.join(root_dir, target_cat, author)
+        target_path = os.path.join(root_dir, target_cat, author_dir)
         if not os.path.exists(target_path):
             os.makedirs(target_path, exist_ok=True)
         return target_path
