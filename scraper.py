@@ -107,7 +107,7 @@ class Scraper:
         """
         Search for a book in the local directory recursively.
         """
-        root_dir = root_dir or os.getenv("OPENLIB_BOOK_PATH", "/Users/mac/Documents/HW/我独自阅读")
+        root_dir = root_dir or os.getenv("OPENLIB_BOOK_PATH", os.path.join(os.getcwd(), "Downloads"))
         if not os.path.exists(root_dir):
             return None
             

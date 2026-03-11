@@ -5,7 +5,7 @@
 ## ⚙️ 配置说明
 
 ### 自定义知识库路径 (Knowledge Base Path)
-该扩展默认将书籍下载并管理于 `/Users/mac/Documents/HW/我独自阅读`。如果你希望使用自己的 Obsidian Vault 或其他存储目录，请设置环境变量 `OPENLIB_BOOK_PATH`：
+该扩展默认将书籍下载并管理于当前工作目录下的 `Downloads` 文件夹中。如果你希望使用自定义路径（如 Obsidian Vault），请设置环境变量 `OPENLIB_BOOK_PATH`：
 
 - **macOS/Linux**:
   在 `.bashrc` 或 `.zshrc` 中添加：
@@ -15,7 +15,7 @@
 - **Windows**:
   设置系统环境变量 `OPENLIB_BOOK_PATH` 为你的目标路径。
 
-> **提示**：设置后请重新启动 Gemini CLI 或刷新扩展以使配置生效。
+> **提示**：如果未设置环境变量，默认会在你运行命令的目录下自动创建 `Downloads` 文件夹。设置后请重新启动 Gemini CLI 或刷新扩展。
 
 ## 🌟 核心特性
 
