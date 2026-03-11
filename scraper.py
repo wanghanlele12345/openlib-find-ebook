@@ -103,10 +103,11 @@ class Scraper:
                 
         return None
 
-    async def check_local_book(self, query: str, root_dir: str) -> Optional[str]:
+    async def check_local_book(self, query: str, root_dir: Optional[str] = None) -> Optional[str]:
         """
         Search for a book in the local directory recursively.
         """
+        root_dir = root_dir or os.getenv("OPENLIB_BOOK_PATH", "/Users/mac/Documents/HW/我独自阅读")
         if not os.path.exists(root_dir):
             return None
             

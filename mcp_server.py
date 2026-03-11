@@ -37,7 +37,7 @@ async def check_local_library(query: str):
     """
     Search for a book in the local library recursively.
     """
-    root_dir = "/Users/mac/Documents/HW/我独自阅读"
+    root_dir = os.getenv("OPENLIB_BOOK_PATH", "/Users/mac/Documents/HW/我独自阅读")
     path = await scraper.check_local_book(query, root_dir)
     if path:
         return {"status": "found", "file_path": path}
@@ -51,9 +51,9 @@ async def download_book(url: str, category: str, author: str, filename: str = No
     CRITICAL: The 'author' parameter MUST follow the project's 'Chinese (English)' convention.
     Example: '斯坦尼斯拉斯·迪昂 (Stanislas Dehaene)'. 
     If you (the Agent) only have the English name, use your LLM capabilities to find the common Chinese translation.
-    Format: /Users/mac/Documents/HW/我独自阅读/category/author/filename
+    Format: {OPENLIB_BOOK_PATH}/category/author/filename
     """
-    root_dir = "/Users/mac/Documents/HW/我独自阅读"
+    root_dir = os.getenv("OPENLIB_BOOK_PATH", "/Users/mac/Documents/HW/我独自阅读")
     target_dir = scraper.prepare_structured_dir(root_dir, category, author)
     file_path = await scraper.download_file(url, dest_folder=target_dir, filename=filename)
     if file_path:

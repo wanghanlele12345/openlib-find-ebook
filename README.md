@@ -2,6 +2,21 @@
 
 这是一个为 Gemini CLI 量身定制的高自动化电子书获取与管理工具。它集成了搜索、智能绕过 Cloudflare 验证、自动分类归档以及 EPUB 转 Markdown 等功能。
 
+## ⚙️ 配置说明
+
+### 自定义知识库路径 (Knowledge Base Path)
+该扩展默认将书籍下载并管理于 `/Users/mac/Documents/HW/我独自阅读`。如果你希望使用自己的 Obsidian Vault 或其他存储目录，请设置环境变量 `OPENLIB_BOOK_PATH`：
+
+- **macOS/Linux**:
+  在 `.bashrc` 或 `.zshrc` 中添加：
+  ```bash
+  export OPENLIB_BOOK_PATH="/你的/自定义/路径"
+  ```
+- **Windows**:
+  设置系统环境变量 `OPENLIB_BOOK_PATH` 为你的目标路径。
+
+> **提示**：设置后请重新启动 Gemini CLI 或刷新扩展以使配置生效。
+
 ## 🌟 核心特性
 
 - **智能绕过 Cloudflare (Bot Detection)**：集成 Stealth Playwright 模拟真实用户行为（随机延迟、鼠标轨迹、UA 伪装），大幅提高从 Anna's Archive 下载时的成功率。
