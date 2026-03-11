@@ -1,0 +1,13 @@
+{
+  "name": "openlib-finder",
+  "description": "Book finder and downloader using Anna's Archive mirrors and Playwright Stealth.",
+  "mcpServers": {
+    "openlib": {
+      "command": "python3",
+      "args": ["${extensionPath}/mcp_server.py"],
+      "env": {
+        "PYTHONPATH": "${extensionPath}"
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+httpx
+beautifulsoup4
+python-multipart
+playwright
+playwright-stealth
+mcp
+fastmcp
+pypandoc
+markitdown
