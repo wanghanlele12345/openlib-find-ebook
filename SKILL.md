@@ -27,6 +27,15 @@ After download, automatically trigger conversion:
 - **EPUB**: Invokes `/Library/Services/Convert EPUB to Markdown.workflow`. This will unzip, convert, and split the book into individual chapter `.md` files in a dedicated sub-folder.
 - **PDF**: Falls back to `MarkItDown` library for general markdown conversion.
 
+## CLI Quick Call
+
+For maximum efficiency, you can skip individual tool calls and run the entire search-download-convert workflow directly from the command line:
+
+```bash
+/Users/mac/.gemini/skills/openlib-book-finder/venv/bin/python /Users/mac/.gemini/skills/openlib-book-finder/mcp_server.py "<Book Name>" "<Category>"
+```
+This is the preferred way for complex "find and save" requests.
+
 ## Troubleshooting
 - **Cloudflare**: The scraper uses Stealth Playwright to handle 'Just a moment' challenges. If a mirror is slow, it automatically rotates to others.
 - **File Errors**: Handles long filenames by cleaning metadata and using short, safe names.
